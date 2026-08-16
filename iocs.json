@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "published_at": "2026-08-16",
+  "samples": [
+    {
+      "role": "outer_loader",
+      "filename": "Prestige-Client.exe",
+      "size": 767488,
+      "md5": "d101c0eeb89ce736928a061f100337de",
+      "sha1": "feb0a5a4280eef41b7fa96be26e4698eb30804a2",
+      "sha256": "4507816e4942a66caa4986c5e732386aea8679f9b5253a5e17959416825e6b08",
+      "authenticode": false
+    },
+    {
+      "role": "injector_controller",
+      "filename": "injector.dll",
+      "size": 5105566,
+      "md5": "af658bbb582714a733d212e60c0e17c7",
+      "sha1": "d0f2618ca857d1e803e1ca0aeaf13584a8df80e9",
+      "sha256": "1472c12a4834a5b1908f1f14814ea427a7d1d43e95ec0f0a881cd0692f1aa2ad",
+      "authenticode": false,
+      "ssdeep": "49152:rIYlKD8d1UZ8FSNXV4gGdn1NhPJt6YiiECrRvOGnGpO6RfEpIP0SqUzu+Z1OcO7Z:DMDpZ8L1jX6YiiECrRvO4I8/cZgbF"
+    }
+  ],
+  "capture_archive_sha256": "5ccc313babf89e0efdd9540d8e73e01a66d839cae0b6177d8e73c15cd835108b",
+  "network": {
+    "domain": "api.prestigeclient.vip",
+    "observed_pinned_ip": "172.67.137.182",
+    "urls": [
+      "https://api.prestigeclient.vip/injectorDownload",
+      "https://api.prestigeclient.vip/injectionDownload",
+      "https://api.prestigeclient.vip/prestigeDownload",
+      "https://api.prestigeclient.vip/login",
+      "https://api.prestigeclient.vip/newModLogin",
+      "https://api.prestigeclient.vip/newFirstLogin",
+      "https://api.prestigeclient.vip/injectorAccountInfo",
+      "https://api.prestigeclient.vip/injectorBetaToggle"
+    ],
+    "ip_note": "Cloudflare/shared reverse-proxy address; do not treat the IP alone as malicious."
+  },
+  "historical_related_sha256": [
+    "ea194857ac2623ad4b0a8ac8115c9eb7fa23af566d8cfd028f97e9c0e5919034",
+    "1921984948718074c52de01fb2ac75de1136ecce0adbb4b119072ffacd249aa5",
+    "5bff5030f0d4cc53cde783876f92ea3e09465d9ca59ce8ae0a7bb82d870ec045"
+  ],
+  "assessment": {
+    "confirmed": [
+      "remote PE delivery",
+      "reflective/manual PE loading",
+      "remote process injection",
+      "anti-debug and anti-VM checks",
+      "hardware fingerprint collection",
+      "no payload hash or publisher pinning before execution"
+    ],
+    "not_confirmed_on_captured_samples": [
+      "RAT command loop",
+      "browser credential theft",
+      "keylogging",
+      "screen or camera capture",
+      "persistence",
+      "ransomware or destructive impact",
+      "file archival and exfiltration"
+    ]
+  }
+}
