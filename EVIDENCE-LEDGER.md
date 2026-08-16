@@ -1,73 +1,68 @@
-# Prestige Client kanıt defteri
+# Prestige Client evidence ledger
 
-**Tarih:** 16 Ağustos 2026  
-**Amaç:** Yayımlanan her teknik hükmün hangi exact örneğe, adrese, dosya ofsetine, çağrı zincirine ve dış kaynağa dayandığını göstermek.  
-**Ana rapor:** [`Prestige-Client-investigation-TR.md`](Prestige-Client-investigation-TR.md)
+**Date:** 16 August 2026<br>
+**Purpose:** Tie every material conclusion to an exact sample, virtual address, file offset, call chain, source, and explicit limitation.<br>
+**Main report:** [`REPORT.md`](REPORT.md)
 
-## Son hüküm
+## Final assessment
 
-İncelenen zincir için kanıtlanan sınıflandırma şudur:
+> **High-risk loader/injector chain that executes unsigned, remotely replaceable PE payloads without an expected hash or publisher check; its captured second stage includes dedicated anti-analysis, hardware fingerprinting, and two Minecraft process-injection paths.**
 
-> **İmzasız, uzaktan değiştirilebilir PE payload'larını doğrulamadan bellekte çalıştıran; ikinci aşamasında güçlü anti-analysis, cihaz parmak izi ve iki ayrı Minecraft process-injection yolu bulunan yüksek riskli loader/injector zinciri.**
+A RAT command loop, browser credential theft, keylogging, screen capture, persistence, ransomware, and file exfiltration were not established in the two captured hashes. Because the authenticated third-stage payload was not obtained, its final behavior cannot honestly be classified as either clean or a RAT.
 
-Exact iki örnekte RAT komut döngüsü, browser credential hırsızlığı, keylogging, ekran yakalama, kalıcılık, fidyeleme veya dosya exfiltration davranışı kanıtlanmadı. Kimlik doğrulamalı üçüncü payload ele geçirilmediği için zincirin nihai aşaması hakkında “temiz” veya “RAT” hükmü verilemez.
+## Evidence levels
 
-## Kanıt düzeyleri
+| Level | Meaning |
+|---|---|
+| A | Exact-sample bytes, PE structures, IDA disassembly/decompilation, xref, or uninterrupted data flow |
+| B | Independent exact-hash report or historical different hash using the same infrastructure |
+| C | Automated AV, capa, or sandbox label; not a behavioral conclusion until manually validated |
+| D | Social-media, video, or otherwise unverified allegation |
 
-| Düzey | Anlamı | Kullanım |
-|---|---|---|
-| A | Exact sample baytı, PE yapısı, IDA disassembly/decompile, xref veya kesintisiz veri akışı | Davranışı doğrulamak için yeterli |
-| B | Aynı exact hash için bağımsız rapor veya aynı altyapıdaki tarihsel farklı hash | Korelasyon; tek başına davranış/aktör atfı değil |
-| C | AV, capa veya sandbox otomatik etiketi | Elle doğrulanmadıkça hüküm değil |
-| D | Sosyal medya, video veya doğrulanamayan teknik iddia | Yalnız iddia olarak kaydedilir |
+## Artifact custody
 
-## Artefakt ve gözetim zinciri
-
-| ID | Rol | Boyut | SHA-256 | Kaynak ve doğrulama |
+| ID | Role | Size | SHA-256 | Source and validation |
 |---|---|---:|---|---|
-| S1 | Dış loader | 767.488 | `4507816e4942a66caa4986c5e732386aea8679f9b5253a5e17959416825e6b08` | Kullanıcının indirdiği `Prestige-Client.exe`; yerel `sha256sum`, PE parser, IDA `prestige_client_static` |
-| S2 | Injector/controller DLL | 5.105.566 | `1472c12a4834a5b1908f1f14814ea427a7d1d43e95ec0f0a881cd0692f1aa2ad` | 16 Ağustos 2026'da `POST /injectorDownload` yanıtı; HTTP `Content-Disposition: injector.dll`; yerel hash + IDA `prestige_injector_payload` |
-| A1 | Yakalama arşivi | — | `5ccc313babf89e0efdd9540d8e73e01a66d839cae0b6177d8e73c15cd835108b` | S2, response headers ve meta verisini içeren kullanıcı arşivi |
+| S1 | Outer loader | 767,488 | `4507816e4942a66caa4986c5e732386aea8679f9b5253a5e17959416825e6b08` | User-supplied `Prestige-Client.exe`; local hashes, PE parsing, IDA database `prestige_client_static` |
+| S2 | Injector/controller DLL | 5,105,566 | `1472c12a4834a5b1908f1f14814ea427a7d1d43e95ec0f0a881cd0692f1aa2ad` | Captured 16 August 2026 from `POST /injectorDownload`; response named `injector.dll`; local hashes and IDA database `prestige_injector_payload` |
+| A1 | Capture archive | — | `5ccc313babf89e0efdd9540d8e73e01a66d839cae0b6177d8e73c15cd835108b` | Archive containing S2, response headers, and capture metadata |
 
-S1 ve S2 Authenticode imzası taşımıyor. Şüpheli binary'ler GitHub çıktı paketine eklenmedi; yayımlanan metin, IOC ve YARA dosyaları [`SHA256SUMS`](SHA256SUMS) ile sabitlendi.
+S1 and S2 have no Authenticode signature. Suspicious binaries are excluded from the repository; published artifacts are pinned by [`SHA256SUMS`](SHA256SUMS).
 
-## VA → dosya ofseti eşlemesi
+## Virtual-address to file-offset mapping
 
-Her iki PE'de `.text` section RVA'sı `0x1000`, raw başlangıcı `0x400`dür. Bu nedenle aşağıdaki `.text` adresleri için:
+Both PEs have `.text` RVA `0x1000` and raw offset `0x400`:
 
 ```text
 file_offset = VA - image_base - 0x1000 + 0x400
 ```
 
-| Örnek | VA | Dosya ofseti | İşlev |
+| Sample | VA | File offset | Function |
 |---|---:|---:|---|
-| S1 | `0x140001316` | `0x716` | Pinned hostname/IP ve `CURLOPT_RESOLVE` |
-| S1 | `0x14000142C` | `0x82C` | Response → manual mapper; export arama |
-| S1 | `0x1400014CF` | `0x8CF` | `JNI_OnLoad(0,0)` dolaylı çağrısı |
-| S1 | `0x1400015F1` | `0x9F1` | PE/DLL doğrulama başlangıcı |
-| S1 | `0x1400017FD` | `0xBFD` | `LoadLibraryA` ile import çözme |
-| S1 | `0x140001912` | `0xD12` | `VirtualProtect` ile section izinleri |
+| S1 | `0x140001316` | `0x716` | Pinned hostname/IP and `CURLOPT_RESOLVE` |
+| S1 | `0x14000142C` | `0x82C` | Response to manual mapper and export search |
+| S1 | `0x1400014CF` | `0x8CF` | Indirect `JNI_OnLoad(0,0)` call |
+| S1 | `0x1400015F1` | `0x9F1` | PE/DLL validation gate |
+| S1 | `0x1400017FD` | `0xBFD` | Import resolution through `LoadLibraryA` |
+| S1 | `0x140001912` | `0xD12` | Section permissions through `VirtualProtect` |
 | S2 | `0x180052E50` | `0x52250` | Remote manual mapper |
-| S2 | `0x180044E70` | `0x44270` | Remote `LoadLibraryA` fallback yolu |
-| S2 | `0x1800879A9` | `0x86DA9` | `/injectionDownload` write callback/data kurulumu |
-| S2 | `0x180097545` | `0x96945` | Response pointer/length → globaller |
-| S2 | `0x18006E0F2` | `0x6D4F2` | Globaller → yerel pointer/length çifti |
-| S2 | `0x18006E1D8` | `0x6D5D8` | Çift → remote mapper çağrısı |
-| S2 | `0x18007C540` | `0x7B940` | Debugger/analiz aracı kontrolü |
-| S2 | `0x180055290` | `0x54690` | HWID/WMI toplama |
-| S2 | `0x180084D83` | `0x84183` | Crypto++ SHA-256 parola hattı |
+| S2 | `0x180044E70` | `0x44270` | Remote `LoadLibraryA` fallback |
+| S2 | `0x1800879A9` | `0x86DA9` | `/injectionDownload` callback/data setup |
+| S2 | `0x180097545` | `0x96945` | Response pointer/length written to globals |
+| S2 | `0x18006E0F2` | `0x6D4F2` | Globals copied to local pointer/length pair |
+| S2 | `0x18006E1D8` | `0x6D5D8` | Pair passed to remote mapper |
+| S2 | `0x18007C540` | `0x7B940` | Debugger/analysis-tool controls |
+| S2 | `0x180055290` | `0x54690` | WMI/HWID collection |
+| S2 | `0x180084D83` | `0x84183` | Crypto++ SHA-256 password path |
 
-## Doğrulanan iddialar
+## Confirmed claims
 
-### C01 — Dış örnek sunucuya sabitlenmiş bir HTTPS isteği yapar
+### C01 — The outer sample makes a pinned HTTPS request
 
-- **Durum:** Doğrulandı — A.
-- **Örnek:** S1.
-- **Kanıt:** `WinMain` `0x1400012D0`; `0x140001316` adresinde `api.prestigeclient.vip:443:172.67.137.182` dizesi alınır ve option `0x27DB`/10203 (`CURLOPT_RESOLVE`) ayarlanır.
-- **URL:** `sub_140001070` temel `https://api.prestigeclient.vip`; `sub_140001A50` `0x140001BA1` civarında `/injectorDownload` ekler.
-- **Resmî semantik:** [libcurl CURLOPT_RESOLVE](https://curl.se/libcurl/c/CURLOPT_RESOLVE.html) `HOST:PORT:ADDRESS` biçiminin hostname çözümlemesini belirtilen IP'ye yönlendirdiğini açıklar.
-
-Ham bayt başlangıcı:
+- **Status:** Confirmed, level A.
+- **Evidence:** `WinMain` at `0x1400012D0`; `0x140001316` references `api.prestigeclient.vip:443:172.67.137.182` and selects option `0x27DB`/10203.
+- **URL:** `sub_140001070` constructs `https://api.prestigeclient.vip`; `sub_140001A50` appends `/injectorDownload`.
+- **Semantics:** libcurl documents the `HOST:PORT:ADDRESS` override in [`CURLOPT_RESOLVE`](https://curl.se/libcurl/c/CURLOPT_RESOLVE.html).
 
 ```text
 0x140001316 / file 0x716
@@ -76,162 +71,145 @@ Ham bayt başlangıcı:
 76 46 0b 00 e8 41 3e 00 00
 ```
 
-### C02 — Sunucu yanıtı executable PE/DLL olarak beklenir
+### C02 — The response is expected to be an executable x64 DLL
 
-- **Durum:** Doğrulandı — A.
-- **Örnek:** S1.
-- **Kanıt:** `sub_1400015D0` şu kontrolleri reddetme dallarıyla uygular: `MZ` (`0x5A4D`), `PE\0\0` (`0x4550`), PE32+ magic (`0x20B`) ve `IMAGE_FILE_DLL` (`0x2000`).
-- **Adres/ofset:** `0x1400015F1` / `0x9F1`.
+- **Status:** Confirmed, level A.
+- **Evidence:** `sub_1400015D0` checks `MZ`, `PE\0\0`, PE32+ magic `0x20B`, and DLL characteristic `0x2000`, starting at `0x1400015F1` / file `0x9F1`.
 
-```text
-48 83 fa 40 ... b8 4d 5a 00 00 66 39 01 ...
-41 81 3c 0e 50 45 00 00 ... b8 0b 02 00 00 ...
-b8 00 20 00 00 66 41 85 44 0e 16
-```
+### C03 — S1 manually maps the response into its own memory
 
-### C03 — S1 yanıt DLL'sini kendi belleğine manual-map eder
+- **Status:** Confirmed, level A.
+- **Function:** `sub_1400015D0`.
+- **Sequence:** `VirtualAlloc` -> header/section copies -> relocations -> `LoadLibraryA`/`GetProcAddress` -> `VirtualProtect` -> `RtlAddFunctionTable` -> TLS callbacks -> DLL entry point.
+- **Classification:** [MITRE T1620](https://attack.mitre.org/techniques/T1620/).
 
-- **Durum:** Doğrulandı — A.
-- **Örnek:** S1.
-- **İşlev:** `sub_1400015D0`.
-- **Kesintisiz işlemler:** `VirtualAlloc` (`0x140001674/690`) → PE headers/sections `memcpy` → base relocations (`0x14000172D–7BE`) → `LoadLibraryA`/`GetProcAddress` (`0x1400017FD/83C`) → `VirtualProtect` (`0x140001912`) → `RtlAddFunctionTable` → TLS callbacks → DLL entry point.
-- **Sınıflandırma:** [MITRE ATT&CK T1620 – Reflective Code Loading](https://attack.mitre.org/techniques/T1620/).
+### C04 — The mapped DLL is executed
 
-### C04 — Manual-map edilen DLL gerçekten çalıştırılır
-
-- **Durum:** Doğrulandı — A.
-- **Örnek:** S1.
-- **Kanıt:** `WinMain`, mapped image export tablosunda `JNI_OnLoad` adını arar (`0x140001494–4C2`), RCX ve RDX'yi sıfırlayıp `call rax` yapar (`0x1400014CB–4CF`).
+- **Status:** Confirmed, level A.
+- **Evidence:** `WinMain` searches the mapped export table for `JNI_OnLoad` at `0x140001494–0x1400014C2`, clears RCX/RDX, and executes `call rax` at `0x1400014CF`.
 
 ```text
 33 d2 33 c9 ff d0
 ```
 
-Bu, `JNI_OnLoad(0,0)` çağrısıdır; S1 yalnız dosya indiren pasif updater değildir.
+S1 is not merely a passive updater.
 
-### C05 — İndirilen kod için hash veya yayıncı doğrulaması yoktur
+### C05 — There is no expected hash or publisher gate
 
-- **Durum:** Doğrulandı — A, negatif arama ile destekli.
-- **Örnek:** S1 ve S2.
-- **Kanıt:** S1'de network buffer `sub_140001A50 → WinMain → sub_1400015D0 → JNI_OnLoad` yolunda yalnız PE yapısı kontrol edilir. S2'de callback buffer'ı `sub_180086DA0 → qword_1802186E8/F0 → sub_180052E50` yolunda hash/imza kapısı olmadan ilerler.
-- **Ek kontrol:** Her iki IDB'de `WinVerifyTrust`, `CertGetCertificateChain` ve payload hash allowlist/publisher dizesi bulunmadı; `WinVerifyTrust` importu yok. PE Security Directory'leri boş.
-- **Karşılaştırma kaynağı:** Microsoft, [WinVerifyTrust](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/nf-wintrust-winverifytrust) işlevini Authenticode policy provider ile dosya/yayıncı güveni doğrulama mekanizması olarak tanımlar.
-- **Sınır:** TLS sunucu bağlantısını korur; sunucunun seçtiği payload'ın sabit, önceden denetlenmiş veya aynı kullanıcılar için aynı olduğunu kanıtlamaz.
+- **Status:** Confirmed, level A plus negative search.
+- **Evidence:** S1 response bytes flow directly from downloader to PE checks, mapper, and export execution. S2 callback bytes flow through `qword_1802186E8/F0` to `sub_180052E50`.
+- **Cross-check:** No `WinVerifyTrust`, certificate-chain import, payload allowlist, or publisher string in either IDB; both PE Security Directories are empty.
+- **Reference:** Microsoft [`WinVerifyTrust`](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/nf-wintrust-winverifytrust).
+- **Limitation:** TLS authenticates the connection, not the stability or prior audit status of the server-selected payload.
 
-### C06 — S2 gerçek Prestige injector/controller örneğidir
+### C06 — S2 is a Prestige injector/controller
 
-- **Durum:** Doğrulandı — A.
-- **Kanıt:** Exact HTTP yanıt adı `injector.dll`; PDB `Prestige-Injector\\x64\\DLL\\PrestigeInjector.pdb`; exportlar `JNI_OnLoad`/`DllEntryPoint`; UI dizeleri “Opening Minecraft process” ve “Manual-map injection”; uygulamaya özgü Prestige API yolları.
-- **Koruma:** `.vm_sec` RW ve yaklaşık 2,8 MB `.vlizer` RX section'ları; `JNI_OnLoad` sanallaştırılmış bölgeye geçer.
+- **Status:** Confirmed, level A.
+- **Evidence:** Response filename `injector.dll`; PDB `Prestige-Injector\\x64\\DLL\\PrestigeInjector.pdb`; exports `JNI_OnLoad`/`DllEntryPoint`; Minecraft/manual-map UI strings; product-specific API paths; protected `.vm_sec` and `.vlizer` sections.
 
-### C07 — S2 authenticated üçüncü payload indirir
+### C07 — S2 retrieves an authenticated third-stage payload
 
-- **Durum:** Doğrulandı — A.
-- **İşlev:** `sub_180087770`.
-- **Kanıt:** nlohmann/json ile `{"token": ...}` oluşturulur; URL `/injectionDownload`; libcurl URL, POST fields, content-length, write callback ve userdata ayarlanır.
-- **Callback:** `sub_180086DA0` gelen her chunk'ı değişiklik yapmadan büyüyen buffer'a ekler. libcurl'ın [CURLOPT_WRITEFUNCTION](https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html) belgesi callback'in alınan response baytlarını teslim ettiğini; [CURLOPT_WRITEDATA](https://curl.se/libcurl/c/CURLOPT_WRITEDATA.html) belgesi userdata pointer'ının callback'e taşındığını doğrular.
+- **Status:** Confirmed, level A.
+- **Function:** `sub_180087770`.
+- **Evidence:** nlohmann/json constructs `{"token": ...}` for `/injectionDownload`; libcurl URL, POST body/length, write callback, and userdata are configured.
+- **References:** [`CURLOPT_WRITEFUNCTION`](https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html) and [`CURLOPT_WRITEDATA`](https://curl.se/libcurl/c/CURLOPT_WRITEDATA.html).
 
-### C08 — Üçüncü payload response'u doğrudan remote mapper'a gider
+### C08 — Third-stage response bytes flow directly to the remote mapper
 
-- **Durum:** Doğrulandı — A; araştırmanın en kritik veri akışı.
-- **Örnek:** S2.
-- **Zincir:** `sub_180086DA0` → `sub_180097440` → `qword_1802186E8/F0` → `sub_18006E0B0` veya `sub_18006EF90` → `sub_180052E50`.
-- **Dönüşüm:** Arada archive çıkarma, decrypt/transform, hash allowlist, Authenticode veya publisher doğrulaması yok; pointer ve uzunluk aynı PE consumer'a verilir.
-- **Ham baytlar:** Ana raporun “Ham bayt ve disassembly kanıt eki” bölümü dört ardışık kesiti yayımlar.
+- **Status:** Confirmed, level A.
+- **Chain:** `sub_180086DA0 -> sub_180097440 -> qword_1802186E8/F0 -> sub_18006E0B0 or sub_18006EF90 -> sub_180052E50`.
+- **Transformations:** No archive extraction, decryption, expected hash, Authenticode, or publisher gate; the pointer/length pair reaches the PE consumer.
 
-### C09 — S2 hedef sürece manual-map enjeksiyonu yapabilir
+### C09 — S2 implements remote manual-map injection
 
-- **Durum:** Doğrulandı — A.
-- **İşlev:** `sub_180052E50`.
-- **Pozitif importlar:** `OpenProcess` `0x180149318`, `VirtualAllocEx` `0x180149270`, `WriteProcessMemory` `0x180149228`, `ReadProcessMemory` `0x180149278`, `CreateRemoteThread` `0x180149280`.
-- **Semantik:** Fonksiyon PE headers/sections, relocation, import ve exception table yapılarını işler; uzak belleği ayırır/yazar ve remote thread başlatır.
-- **Resmî API:** [VirtualAllocEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualallocex), [WriteProcessMemory](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory), [CreateRemoteThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createremotethread).
-- **Sınıflandırma:** [MITRE ATT&CK T1055 – Process Injection](https://attack.mitre.org/techniques/T1055/).
+- **Status:** Confirmed, level A.
+- **Function:** `sub_180052E50`.
+- **Imports:** `OpenProcess` at `0x180149318`, `VirtualAllocEx` at `0x180149270`, `WriteProcessMemory` at `0x180149228`, `ReadProcessMemory` at `0x180149278`, and `CreateRemoteThread` at `0x180149280`.
+- **Semantics:** The function parses PE headers, sections, relocations, imports, and exception data, writes remote memory, and starts a remote thread.
+- **References:** [VirtualAllocEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualallocex), [WriteProcessMemory](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory), [CreateRemoteThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createremotethread), and [MITRE T1055](https://attack.mitre.org/techniques/T1055/).
 
-### C10 — S2'nin ikinci, remote `LoadLibraryA` enjeksiyon yolu vardır
+### C10 — A second `LoadLibraryA` injection path exists
 
-- **Durum:** Doğrulandı — A.
-- **İşlev:** `sub_180044E70`.
-- **Kanıt:** Geçici DLL yolu hazırlanır; hedef süreçte `LoadLibraryA` adresi çözülür; uzak bellek/remote thread çağrılarıyla DLL yüklenir. Bu, C09'daki manual mapper'dan ayrı fallback yoludur.
+- **Status:** Confirmed, level A.
+- **Function:** `sub_180044E70`.
+- **Evidence:** It prepares a temporary DLL path, resolves remote `LoadLibraryA`, allocates/writes remote memory, and starts a remote thread. This is independent from C09.
 
-### C11 — S2 özel anti-debug ve analiz aracı engellemesi içerir
+### C11 — S2 contains targeted anti-debug/analysis blocking
 
-- **Durum:** Doğrulandı — A.
-- **İşlev:** `sub_18007C540`; `CheckRemoteDebuggerPresent` importu `0x180149368`.
-- **Kanıt:** Çalışan süreç adları case-insensitive karşılaştırılır; IDA/IDA64, Ghidra, x64dbg/x32dbg, WinDbg, Fiddler, mitmproxy, HTTP Toolkit, dnSpy, Cheat Engine, Scylla, DIE, API Monitor ve diğerleri dahil 30 exact isim kara listededir.
-- **Tepki:** Uyarı, mevcut host'u `--security-notice` ile yeniden başlatma ve `TerminateProcess(...,0x4EC)`.
-- **Sınır:** Anti-analysis malware ile uyumludur; ticari cheat/anti-crack bağlamında da görülebilir. Tek başına RAT kanıtı değildir.
+- **Status:** Confirmed, level A.
+- **Function:** `sub_18007C540`; `CheckRemoteDebuggerPresent` import at `0x180149368`.
+- **Evidence:** Case-insensitive comparison against 30 analysis-process names covering IDA, Ghidra, x64dbg, WinDbg, Fiddler, mitmproxy, HTTP Toolkit, dnSpy, Cheat Engine, Scylla, DIE, API Monitor, and others.
+- **Response:** Warning, restart current host with `--security-notice`, and `TerminateProcess(...,0x4EC)`.
+- **Limitation:** Compatible with malware evasion and commercial cheat/anti-crack protection; not standalone RAT proof.
 
-### C12 — S2 VM/sandbox ortamını tespit etmeye çalışır
+### C12 — S2 checks for VM/sandbox environments
 
-- **Durum:** Doğrulandı — A.
-- **Kanıt:** CPUID hypervisor vendor; BIOS/baseboard manufacturer/product registry alanları; VMware, VBox, KVM, QEMU/TCG, Xen, Parallels, bhyve, ACRN ve diğer vendor dizeleri.
-- **Sınıflandırma:** [MITRE ATT&CK T1497.001](https://attack.mitre.org/techniques/T1497/001/) VM artefaktları, registry/hardware alanları ve VM'e özgü işlemci kontrollerini kapsar.
+- **Status:** Confirmed, level A.
+- **Evidence:** CPUID hypervisor vendor, BIOS/baseboard registry fields, and strings for VMware, VBox, KVM, QEMU/TCG, Xen, Parallels, bhyve, ACRN, and others.
+- **Classification:** [MITRE T1497.001](https://attack.mitre.org/techniques/T1497/001/).
 
-### C13 — S2 kararlı cihaz/HWID parmak izi toplar
+### C13 — S2 collects a persistent device fingerprint
 
-- **Durum:** Doğrulandı — A.
-- **İşlev:** `sub_180055290`.
-- **Alanlar:** `Win32_ComputerSystemProduct.UUID`, baseboard/BIOS serial, CPU `ProcessorId`, disk 0 serial ve `MachineGuid`.
-- **Kullanım bağlamı:** `/newFirstLogin` ve hesap/HWID akışı; resmî şartlar donanım doğrulamasına izin istiyor ve HWID reset için donanım kanıtı talep ediyor.
-- **Sınır:** Bu, cihaz parmak izidir; tek başına credential theft değildir.
+- **Status:** Confirmed, level A.
+- **Function:** `sub_180055290`.
+- **Fields:** `Win32_ComputerSystemProduct.UUID`, baseboard/BIOS serial, CPU `ProcessorId`, disk 0 serial, and `MachineGuid`.
+- **Limitation:** Device fingerprinting is proven; credential theft is not implied.
 
-### C14 — İlk kayıt parolası istemci tarafında SHA-256 hex'e çevrilir
+### C14 — First-login password is SHA-256/hex encoded client-side
 
-- **Durum:** Doğrulandı — A.
-- **Zincir:** `login_password` buffer → `sub_180084CD0` → `CryptoPP::SHA256` → `HashFilter` → `HexEncoder` → `StringSink` → `/newFirstLogin` JSON `password`.
-- **Adres:** SHA256 vtable `0x180084D83`; HexEncoder/StringSink `0x180084DFF–E30`; HashFilter `0x180084E5D`.
-- **Biçim:** uppercase `true`, group size `0`, separator `":"`, terminator `""`; sonuç ayırıcısız 64 büyük harf hex karakteridir. [Crypto++ HexEncoder API](https://cryptopp.com/docs/ref/class_hex_encoder.html).
-- **Sınır:** Sunucunun nasıl sakladığı veya hash'i parola-eşdeğeri kabul edip etmediği istemciden kanıtlanamaz.
+- **Status:** Confirmed, level A.
+- **Flow:** `login_password -> sub_180084CD0 -> CryptoPP::SHA256 -> HashFilter -> HexEncoder -> StringSink -> /newFirstLogin JSON password`.
+- **Addresses:** SHA-256 vtable `0x180084D83`; HexEncoder/StringSink `0x180084DFF–0x180084E30`; HashFilter `0x180084E5D`.
+- **Format:** Uppercase, separator-free, 64-character hexadecimal digest. [Crypto++ HexEncoder API](https://cryptopp.com/docs/ref/class_hex_encoder.html).
+- **Limitation:** Server storage and whether the digest is replayable cannot be established from the client.
 
-### C15 — Resmî ürün beyanları bazı stealth davranışlarını doğrular
+### C15 — Official product statements acknowledge stealth behavior
 
-- **Durum:** Doğrulandı — B; üreticinin kendi beyanı.
-- **Kaynak:** [Resmî site](https://www.prestigeclient.vip/) 7 Ağustos 2026 changelog'u erken hook, “zero-trace cleanup”, capture'a görünmeyen UI ve screenshare bypass'ı pazarlar.
-- **Kod korelasyonu:** Aynı tarihli S2'de anti-analysis, bellek temizliği ve injection mantığı vardır.
-- **Sınır:** Pazarlama metni teknik güvenlik denetimi değildir; RAT'ı ne kanıtlar ne çürütür.
+- **Status:** Confirmed, level B; vendor statement.
+- **Source:** The [official site](https://www.prestigeclient.vip/) 7 August 2026 changelog advertises early hooking, “zero-trace cleanup,” capture-invisible UI, and screenshare bypass.
+- **Limitation:** Marketing copy is neither an independent audit nor proof/refutation of a RAT.
 
-### C16 — Exact dış loader bağımsız araçlarca yüksek riskli görülür
+### C16 — Independent tools flag the exact outer loader
 
-- **Durum:** Doğrulandı — B/C.
-- **Kaynak:** [Manalyzer exact-hash raporu](https://manalyzer.org/report/4507816e4942a66caa4986c5e732386aea8679f9b5253a5e17959416825e6b08) aynı SHA-256'yı ve aktarılan 46/68 AV sonucunu gösterir.
-- **Sınır:** AV skoru tek başına RAT ailesi veya davranış kanıtı değildir; C01–C12 gibi A-düzeyi bulguların yerine kullanılmadı.
+- **Status:** Confirmed, level B/C.
+- **Source:** [Exact-hash Manalyzer report](https://manalyzer.org/report/4507816e4942a66caa4986c5e732386aea8679f9b5253a5e17959416825e6b08), including a reported 46/68 result.
+- **Limitation:** An AV score does not identify a RAT family or prove exfiltration.
 
-### C17 — Reddit/Triage “stealer/persistence” özeti süreç-atıf hatasına açıktır
+### C17 — The Reddit/Triage summary is vulnerable to process-attribution error
 
-- **Durum:** Doğrulandı — B/D denetimi.
-- **Kaynak:** [Reddit gönderisi](https://www.reddit.com/r/minecraftclients/comments/1vpfkic/prestige_client_is_so_trash_bro/) ve [exact-hash Triage görevi](https://tria.ge/260623-fqhjgsat5q/behavioral1).
-- **Süreç ağacı:** `Explorer.EXE` altında `Prestige-Client.exe` PID 79 ve `chrome.exe` PID 81 aynı derinlikte ayrı kardeş süreçlerdir. Chrome, Prestige'in çocuğu değildir.
-- **Atıf:** Triage görev özeti tüm süreçlerden 43 imzayı birleştirir. Prestige satırındaki görünen process-specific imzalar `GetForegroundWindowSpam` ve `SetWindowsHookEx`; browser/persistence etiketlerini üst özetten doğrudan Prestige'e aktarmak geçerli değildir.
-- **IDA çapraz kontrolü:** Exact S1/S2'de iddia edilen Chrome profile, servis, RDP, Run key ve COM-hijack uygulama zincirleri bulunmadı.
+- **Status:** Confirmed, level B/D review.
+- **Sources:** [Reddit post](https://www.reddit.com/r/minecraftclients/comments/1vpfkic/prestige_client_is_so_trash_bro/) and [exact-hash Triage task](https://tria.ge/260623-fqhjgsat5q/behavioral1).
+- **Process tree:** `Prestige-Client.exe` PID 79 and `chrome.exe` PID 81 are sibling processes beneath `Explorer.EXE`; Chrome is not a child of Prestige.
+- **Attribution:** The task summary aggregates 43 signatures across processes. Visible Prestige-specific signatures are `GetForegroundWindowSpam` and `SetWindowsHookEx`; task-wide browser/persistence labels cannot automatically be assigned to Prestige.
+- **IDA cross-check:** The claimed Chrome-profile, service, RDP, Run-key, and COM-hijack implementations were not found in S1/S2.
 
-## Kanıtlanamayan veya çürütülen iddialar
+## Unproven or refuted claims
 
-Bu bölüm “işlev kesinlikle hiçbir sürümde yoktur” demez. Sonuçlar yalnız S1 ve S2 exact hash'leri içindir; sanallaştırılmış kod ve eksik üçüncü aşama sınırları açıkça korunur.
+These findings are limited to exact samples S1 and S2. They do not assert that a feature has never existed in any version, and they preserve the limitations created by virtualization and the missing third stage.
 
-| ID | İddia | Exact iki örnekte sonuç | Aranan kanıt ve bulunan bağlam |
+| ID | Claim | Result | Search/evidence context |
 |---|---|---|---|
-| N01 | Tam özellikli RAT/C2 komut döngüsü | **Kanıtlanmadı** | Operatör command dispatcher, beacon/task döngüsü, komut kimlikleri, uzak shell veya ayrı C2 protokolü bulunmadı; görülen ağ yolu hesap/payload API'sidir |
-| N02 | Browser cookie/parola hırsızlığı | **Kanıtlanmadı** | `Login Data`, `Local State`, Chromium profile/LevelDB yolları; `CryptUnprotectData`, CredRead/Vault importları ve bu verileri ağa bağlayan xref yok |
-| N03 | Chrome'u headless debug modunda açma | **Çürütüldü (S2)** | `chrome.exe`, `--headless`, `remote-debugging-port`, `9222`, `incognito` 0 uygulama eşleşmesi; tek `CreateProcessW` çağırıcısı mevcut host'u `--security-notice` ile yeniden başlatır |
-| N04 | Keylogger | **Kanıtlanmadı** | `GetAsyncKeyState`/`SetWindowsHookEx` importu yok; `GetKeyState` importu `0x180149928` yalnız UI modifier durumlarına gider; tuş buffer'ı/ağ akışı yok |
-| N05 | Clipboard hırsızlığı | **Kanıtlanmadı** | `sub_18001FBD0/FD20` ImGui UTF-8/UTF-16 clipboard adaptörüdür; network consumer xref'i yok |
-| N06 | Ekran görüntüsü/kamera/mikrofon | **Kanıtlanmadı** | `BitBlt`, `PrintWindow`, capture/camera/mic zinciri yok; GDI eşleşmesi 32×32 ikon rasterizasyonu ve DPI hesabıdır |
-| N07 | Kalıcılık | **Kanıtlanmadı** | `RegSetValue*`, `CreateService*`, `OpenSCManager*`, scheduled-task importları yok; Run/RunOnce/service/schtasks startup veri akışı yok |
-| N08 | Privilege escalation/driver | **Kanıtlanmadı** | Token privilege → elevated action, service/driver kurma veya UAC bypass zinciri yok; Triage görev-özeti başka süreçleri toplar |
-| N09 | Fidyeleme/veri yok etme | **Kanıtlanmadı** | Dosya ağacı şifreleme, ransom note, shadow-copy silme, `vssadmin/wbadmin/bcdedit` zinciri yok |
-| N10 | Dosya arşivleme/exfiltration | **Kanıtlanmadı** | Uygulama düzeyinde ZIP/7z/archive oluşturma ve dosya upload akışı yok; libcurl'ın gömülü cookie/multipart/upload dizeleri kütüphane kodudur |
-| N11 | `/injectorAccountInfo` ile ZIP/credential gönderme | **Çürütüldü (S2)** | Request JSON yalnız `token` ve `challenge`; dosya/arşiv pointer'ı veya multipart body consumer'ı yok |
-| N12 | PowerShell yürütme | **Çürütüldü (S2)** | capa eşleşmesindeki iki `system()` çağrısı `start <URL>` oluşturur; PowerShell/cmd script'i yok |
-| N13 | Kredi kartı/Luhn toplama | **Çürütüldü (S2)** | Eşleşmeler MSVC `std::regex` parser (`0x1800A13B0`, `0x1800A3DD0`); kart verisi veya uygulama çağırıcısı yok |
-| N14 | Coğrafi konum toplama | **Kanıtlanmadı** | capa etiketi geniş `GetLocaleInfo(A/Ex)` kuralından gelir; şehir/ülke/GeoID ve ağ aktarımı yok |
-| N15 | Düz metin kayıt parolası gönderme | **Çürütüldü (S2)** | C14 veri akışı raw UI parolasını SHA-256/HexEncoder'dan sonra request'e verir |
-| N16 | Belirli gelişmiş tehdit grubu/RAT ailesi | **Kanıtlanmadı** | Aileye özgü config, C2, mutex, crypto/protokol veya kod benzerliği yok; topluluk söylentisi aktör atfı değildir |
-| N17 | Üçüncü aşamanın temiz veya zararlı olması | **Belirlenemedi** | `/injectionDownload` geçerli token gerektiriyor; dummy token HTTP 400/boş gövde; exact payload yok |
+| N01 | Full RAT/C2 command loop | **Not proven** | No operator dispatcher, beacon/task loop, command IDs, remote shell, or separate C2 protocol |
+| N02 | Browser cookie/password theft | **Not proven** | No `Login Data`, `Local State`, profile/LevelDB flow, DPAPI/CredRead/Vault imports, or network consumer |
+| N03 | Headless Chrome debug theft | **Refuted for S2** | No application matches for `chrome.exe`, `--headless`, `remote-debugging-port`, `9222`, or incognito; the only `CreateProcessW` caller restarts the current host with `--security-notice` |
+| N04 | Keylogger | **Not proven** | No `GetAsyncKeyState`/`SetWindowsHookEx` import; `GetKeyState` is used for UI modifiers, with no keystroke buffer/network flow |
+| N05 | Clipboard theft | **Not proven** | `sub_18001FBD0/FD20` are ImGui UTF-8/UTF-16 clipboard adapters without network consumers |
+| N06 | Screenshot/camera/microphone | **Not proven** | No `BitBlt`, `PrintWindow`, or media-capture chain; GDI xrefs rasterize a 32×32 icon and calculate DPI |
+| N07 | Persistence | **Not proven** | No Run/RunOnce, service, scheduled-task, or startup implementation |
+| N08 | Privilege escalation/driver | **Not proven** | No token-to-elevated-action, driver/service install, or UAC-bypass chain |
+| N09 | Ransomware/destruction | **Not proven** | No file-tree encryption, ransom note, shadow-copy deletion, or related command chain |
+| N10 | File archival/exfiltration | **Not proven** | No application ZIP/7z/archive creation or file-upload flow; cookie/multipart/upload strings belong to statically linked libcurl |
+| N11 | `/injectorAccountInfo` sends ZIP/credentials | **Refuted for S2** | Request JSON contains only `token` and `challenge`; no file/archive pointer or multipart consumer |
+| N12 | PowerShell execution | **Refuted for S2** | capa-matched `system()` callers build `start <URL>`; no PowerShell/cmd script chain |
+| N13 | Credit-card/Luhn collection | **Refuted for S2** | Matches are MSVC `std::regex` parser internals with no card data or application caller |
+| N14 | Geolocation collection | **Not proven** | capa label comes from broad `GetLocaleInfo(A/Ex)` logic; no city/country/GeoID collection or transmission |
+| N15 | Plaintext registration password | **Refuted for S2** | C14 shows SHA-256/HexEncoder before the request field |
+| N16 | Named advanced threat group/RAT family | **Not proven** | No family-specific config, C2, mutex, protocol, crypto, or code-similarity evidence |
+| N17 | Third stage is clean or malicious | **Undetermined** | `/injectionDownload` requires a valid token; dummy token produced HTTP 400 with an empty body |
 
-### Negatif arama kapsamı
+## Negative-search scope
 
-IDA import sorguları S1 ve S2 için şu ailelerde sıfır sonuç verdi:
+IDA import queries returned no result in S1/S2 for:
 
 ```text
 WinVerifyTrust, CryptUnprotectData, CredRead*, Vault*, GetAsyncKeyState,
@@ -239,23 +217,23 @@ SetWindowsHook*, BitBlt, PrintWindow, RegSetValue*, CreateService*,
 OpenSCManager*, ChangeServiceConfig*
 ```
 
-S2 string aramasındaki `cookie`, `.onion`, multipart ve upload metinleri statik bağlı libcurl'ın hata/dokümantasyon dizeleridir. Uygulamaya özgü xref'ler JSON API POST'larına gider. “Bulunmadı” sonucu import/string/xref kapsamını ifade eder; `.vlizer` sanallaştırmasının matematiksel olarak eksiksiz çözümü değildir.
+S2 contains `cookie`, `.onion`, multipart, and upload text inside statically linked libcurl error/documentation strings. Application xrefs lead to JSON API POSTs. “Not found” refers to import/string/xref coverage; it is not a mathematical proof that every virtualized instruction in `.vlizer` was recovered.
 
-## Dış kaynakların doğru kullanım biçimi
+## Correct use of external sources
 
-| Kaynak | Desteklediği hüküm | Desteklemediği hüküm |
+| Source | Supports | Does not support |
 |---|---|---|
-| Manalyzer exact hash | PE kimliği, packer/loader şüphesi, aktarılan çoklu AV sonucu | RAT ailesi, exfiltration |
-| Exact-hash Triage | Aynı örneğin sandbox'ta PE indirmesi ve görev düzeyi şüpheli aktivite | Her görev imzasının Prestige PID'sine ait olması |
-| ANY.RUN `e88dc…` | Mart 2026'da aynı API'den executable controller indirme sürekliliği | Ağustos 2026 üçüncü aşaması veya RAT |
-| Hybrid Analysis tarihsel hash'ler | Aynı domain, anti-VM ve injection soyuna korelasyon | Güncel exact hash davranışının yerine geçme |
-| Resmî Prestige site/politika | Ürünün injection, zero-trace, screenshare bypass ve HWID/SHA-256 beyanları | Bağımsız güvenlik sertifikası |
-| Reddit/YouTube | Topluluk iddialarının kaynağı | Exact-sample davranış kanıtı |
-| MITRE/Microsoft/curl/Crypto++ | API/tekniğin genel teknik semantiği | Örneğin bu semantiği kullandığına dair tek başına kanıt; bunun için IDA gerekir |
+| Exact-hash Manalyzer | Sample identity and independent multi-engine warning | RAT family or exfiltration |
+| Exact-hash Triage | Same executable and task-level activity | Assigning every task signature to the Prestige PID |
+| Historical ANY.RUN | March 2026 continuity of executable controller delivery from the same API | August 2026 third stage or RAT conclusion |
+| Historical Hybrid Analysis | Same-domain, anti-VM, and injection-lineage correlation | Replacement for exact-hash behavior |
+| Official Prestige site/policy | Vendor claims about injection, cleanup, screenshare bypass, HWID, and SHA-256 | Independent security certification |
+| Reddit/video | Origin of community allegations | Exact-sample behavior proof |
+| MITRE/Microsoft/curl/Crypto++ | General technique/API semantics | Proof that the sample uses them; IDA supplies that proof |
 
-## Yeniden üretilebilir güvenli kontroller
+## Safe reproducibility
 
-Bu komutlar dosyaları çalıştırmaz:
+These commands do not execute the samples:
 
 ```sh
 sha256sum Prestige-Client.exe injectorDownload.bin
@@ -266,25 +244,22 @@ yara prestige_chain.yar Prestige-Client.exe
 yara prestige_chain.yar injectorDownload.bin
 ```
 
-Yayımlanan paket için:
+Repository checks:
 
 ```sh
-cd outputs
 sha256sum -c SHA256SUMS
 jq empty iocs.json
 sh -n capture-third-stage.sh
 ```
 
-`prestige_chain.yar` içindeki exact-hash kuralı yalnız iki yakalanan örneği; yapısal kural ise Prestige controller ailesine özgü PDB/API/section birleşimini hedefler. Yapısal eşleşme tek başına RAT demek değildir.
+The exact-hash YARA rule identifies only the two captured artifacts. The structural rule identifies the observed Prestige controller lineage through a combined PDB/API/section signature. A structural match is not proof of RAT behavior.
 
-## Yayında kullanılabilecek ve kullanılamayacak ifadeler
+## Defensible public wording
 
-### Kanıtın desteklediği
+Supported:
 
-> Prestige Client'ın incelenen sürümü, sunucudan aldığı imzasız ve kullanıcı tarafından doğrulanamayan PE payload'larını bellekte çalıştıran bir loader zinciridir. İkinci aşama authenticated üçüncü payload'ı doğrudan Minecraft'a enjekte edebilir. Güçlü anti-analysis ve HWID toplaması da doğrulanmıştır. Bu mimari, nihai payload temiz olsa bile kullanıcı açısından doğrulanamaz uzaktan kod çalıştırma riski yaratır; yazılım kullanılmamalıdır.
+> The analyzed Prestige Client version executes unsigned, user-unverifiable PE payloads selected by a remote server. Its second stage can download and inject a further authenticated payload into Minecraft. Anti-analysis and hardware fingerprinting are also confirmed. This architecture is unsafe even if a particular final payload is benign, and the software should not be used.
 
-### Kanıtın desteklemediği
+Unsupported:
 
-> “Prestige kesin RAT'tır”, “parolaları/cookie'leri kesin çalıyor”, “belirli gelişmiş grup tarafından yazıldı” veya “Triage'teki tüm 43 imza Prestige'e aittir.”
-
-Bu ayrım araştırmayı zayıflatmaz; yanlış pozitifleri ayıklayıp kesin kanıtlanan mimari riski daha savunulabilir hâle getirir.
+> Prestige is definitively a RAT, definitely steals passwords/cookies, belongs to a named advanced group, or owns every signature shown in the task-wide Triage summary.
